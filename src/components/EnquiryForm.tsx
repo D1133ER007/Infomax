@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useAuthContext } from "@/components/auth/AuthProvider";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -84,7 +85,7 @@ export default function EnquiryForm() {
   const onSubmit = async (data: EnquiryFormValues) => {
     try {
       setIsSubmitting(true);
-      const { error } = await createEnquiry({ ...data, user_id: user?.id });
+      const { error } = await createEnquiry({ ...data });
 
       if (error) throw error;
 

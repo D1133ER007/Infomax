@@ -9,7 +9,170 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      book_exchanges: {
+        Row: {
+          book_id: string | null
+          created_at: string | null
+          id: string
+          payment_amount: number | null
+          payment_method: string | null
+          payment_status: string | null
+          requester_id: string | null
+          status: Database["public"]["Enums"]["exchange_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          book_id?: string | null
+          created_at?: string | null
+          id?: string
+          payment_amount?: number | null
+          payment_method?: string | null
+          payment_status?: string | null
+          requester_id?: string | null
+          status?: Database["public"]["Enums"]["exchange_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          book_id?: string | null
+          created_at?: string | null
+          id?: string
+          payment_amount?: number | null
+          payment_method?: string | null
+          payment_status?: string | null
+          requester_id?: string | null
+          status?: Database["public"]["Enums"]["exchange_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_exchanges_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "book_exchanges_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      books: {
+        Row: {
+          author: string
+          condition: Database["public"]["Enums"]["book_condition"]
+          cover_image: string | null
+          created_at: string
+          description: string | null
+          genre: string | null
+          id: string
+          location: string
+          owner_id: string
+          price: number
+          published_year: number | null
+          title: string
+        }
+        Insert: {
+          author: string
+          condition?: Database["public"]["Enums"]["book_condition"]
+          cover_image?: string | null
+          created_at?: string
+          description?: string | null
+          genre?: string | null
+          id?: string
+          location: string
+          owner_id: string
+          price: number
+          published_year?: number | null
+          title: string
+        }
+        Update: {
+          author?: string
+          condition?: Database["public"]["Enums"]["book_condition"]
+          cover_image?: string | null
+          created_at?: string
+          description?: string | null
+          genre?: string | null
+          id?: string
+          location?: string
+          owner_id?: string
+          price?: number
+          published_year?: number | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "books_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      favorites: {
+        Row: {
+          book_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorites_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          id: string
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +181,8 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      book_condition: "new" | "like-new" | "good" | "fair" | "poor"
+      exchange_status: "pending" | "accepted" | "rejected" | "completed"
     }
     CompositeTypes: {
       [_ in never]: never

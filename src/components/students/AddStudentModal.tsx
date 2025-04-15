@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,13 +29,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useStudents } from "@/lib/hooks/useStudents";
+import { useToast } from "@/components/ui/use-toast";
+import { Loader2 } from "lucide-react";
 
 const studentFormSchema = z.object({
-  firstName: z.string().min(2, "First name must be at least 2 characters"),
-  lastName: z.string().min(2, "Last name must be at least 2 characters"),
+  first_name: z.string().min(2, "First name must be at least 2 characters"),
+  last_name: z.string().min(2, "Last name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
-  studentId: z.string().min(1, "Student ID is required"),
+  student_id: z.string().min(1, "Student ID is required"),
   grade: z.string().min(1, "Grade is required"),
+  date_of_birth: z.string().optional(),
+  contact_no: z.string().optional(),
+  guardian_name: z.string().optional(),
+  guardian_contact: z.string().optional(),
+  address: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -44,36 +52,117 @@ type StudentFormValues = z.infer<typeof studentFormSchema>;
 interface AddStudentModalProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  onSubmit?: (data: StudentFormValues) => void;
+  onSubmit?: (data: any) => void;
+  studentId?: string;
 }
 
 export default function AddStudentModal({
   open = true,
   onOpenChange = () => {},
-  onSubmit = (data) => console.log(data),
+  onSubmit = () => {},
+  studentId,
 }: AddStudentModalProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { createStudent, updateStudent, getStudent } = useStudents();
+  const { toast } = useToast();
+  const isEditing = !!studentId;
+
   const form = useForm<StudentFormValues>({
     resolver: zodResolver(studentFormSchema),
     defaultValues: {
-      firstName: "",
-      lastName: "",
+      first_name: "",
+      last_name: "",
       email: "",
-      studentId: "",
+      student_id: `STU${new Date().getTime().toString().slice(-6)}`,
       grade: "",
+      date_of_birth: "",
+      contact_no: "",
+      guardian_name: "",
+      guardian_contact: "",
+      address: "",
       notes: "",
     },
   });
 
-  const handleSubmit = (data: StudentFormValues) => {
-    onSubmit(data);
-    onOpenChange(false);
+  React.useEffect(() => {
+    if (studentId) {
+      const fetchStudent = async () => {
+        const { data, error } = await getStudent(studentId);
+        if (error) {
+          toast({
+            title: "Error",
+            description: "Failed to load student details.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (data) {
+          form.reset({
+            first_name: data.first_name,
+            last_name: data.last_name,
+            email: data.email,
+            student_id: data.student_id,
+            grade: data.grade,
+            date_of_birth: data.date_of_birth || "",
+            contact_no: data.contact_no || "",
+            guardian_name: data.guardian_name || "",
+            guardian_contact: data.guardian_contact || "",
+            address: data.address || "",
+            notes: data.notes || "",
+          });
+        }
+      };
+      fetchStudent();
+    }
+  }, [studentId, getStudent, form, toast]);
+
+  const handleSubmit = async (data: StudentFormValues) => {
+    setIsSubmitting(true);
+    try {
+      if (isEditing && studentId) {
+        const { data: updatedStudent, error } = await updateStudent(
+          studentId,
+          data,
+        );
+        if (error) throw error;
+        toast({
+          title: "Success",
+          description: "Student updated successfully.",
+        });
+        onSubmit(updatedStudent);
+      } else {
+        const { data: newStudent, error } = await createStudent({
+          ...data,
+          enrollment_date: new Date().toISOString().split("T")[0],
+          status: "active",
+        });
+        if (error) throw error;
+        toast({
+          title: "Success",
+          description: "Student added successfully.",
+        });
+        onSubmit(newStudent);
+      }
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error saving student:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save student. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] bg-background">
         <DialogHeader>
-          <DialogTitle>Add New Student</DialogTitle>
+          <DialogTitle>
+            {isEditing ? "Edit Student" : "Add New Student"}
+          </DialogTitle>
           <DialogDescription>
             Fill in the student details below. All fields marked with * are
             required.
@@ -88,7 +177,7 @@ export default function AddStudentModal({
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="firstName"
+                name="first_name"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>First Name *</FormLabel>
@@ -102,7 +191,7 @@ export default function AddStudentModal({
 
               <FormField
                 control={form.control}
-                name="lastName"
+                name="last_name"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Last Name *</FormLabel>
@@ -136,12 +225,16 @@ export default function AddStudentModal({
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="studentId"
+                name="student_id"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Student ID *</FormLabel>
                     <FormControl>
-                      <Input placeholder="STU001" {...field} />
+                      <Input
+                        placeholder="STU001"
+                        {...field}
+                        readOnly={isEditing}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -177,6 +270,80 @@ export default function AddStudentModal({
               />
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="date_of_birth"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Date of Birth</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="contact_no"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Contact Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+1 234 567 8900" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="guardian_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Guardian Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Parent/Guardian name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="guardian_contact"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Guardian Contact</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+1 234 567 8900" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Address</FormLabel>
+                  <FormControl>
+                    <Input placeholder="123 Main St, City, State" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="notes"
@@ -199,10 +366,16 @@ export default function AddStudentModal({
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit">Add Student</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {isEditing ? "Update Student" : "Add Student"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

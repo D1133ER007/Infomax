@@ -4,14 +4,10 @@ import { useAuthContext } from "./AuthProvider";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: ("admin" | "staff" | "user")[];
 }
 
-export default function ProtectedRoute({
-  children,
-  allowedRoles,
-}: ProtectedRouteProps) {
-  const { user, profile, loading } = useAuthContext();
+export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const { user, loading } = useAuthContext();
   const location = useLocation();
 
   if (loading) {
@@ -24,10 +20,6 @@ export default function ProtectedRoute({
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
-    return <Navigate to="/unauthorized" replace />;
   }
 
   return <>{children}</>;

@@ -16,22 +16,35 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useAuthContext } from "@/components/auth/AuthProvider";
+import { useToast } from "@/components/ui/use-toast";
 
 interface HeaderProps {
-  adminName?: string;
-  adminEmail?: string;
   notifications?: Array<{ id: string; message: string; time: string }>;
 }
 
 export default function Header({
-  adminName = "John Doe",
-  adminEmail = "john.doe@example.com",
   notifications = [
     { id: "1", message: "New student registration", time: "5m ago" },
     { id: "2", message: "Course enrollment update", time: "10m ago" },
     { id: "3", message: "Payment received", time: "1h ago" },
   ],
 }: HeaderProps) {
+  const { user, profile, signOut } = useAuthContext();
+  const { toast } = useToast();
+
+  const handleSignOut = async () => {
+    try {
+      const { error } = await signOut();
+      if (error) throw error;
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sign out",
+        variant: "destructive",
+      });
+    }
+  };
   return (
     <header className="w-full h-16 border-b bg-background flex items-center justify-between px-4 fixed top-0 right-0">
       <div className="flex-1" />
@@ -44,25 +57,33 @@ export default function Header({
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative">
                     <Bell className="h-5 w-5" />
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                      {notifications.length}
-                    </span>
+                    {notifications?.length > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                        {notifications.length}
+                      </span>
+                    )}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-64">
                   <DropdownMenuLabel>Notifications</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {notifications.map((notification) => (
-                    <DropdownMenuItem
-                      key={notification.id}
-                      className="flex flex-col items-start gap-1"
-                    >
-                      <p className="text-sm">{notification.message}</p>
-                      <span className="text-xs text-muted-foreground">
-                        {notification.time}
-                      </span>
+                  {notifications?.length > 0 ? (
+                    notifications.map((notification) => (
+                      <DropdownMenuItem
+                        key={notification.id}
+                        className="flex flex-col items-start gap-1"
+                      >
+                        <p className="text-sm">{notification.message}</p>
+                        <span className="text-xs text-muted-foreground">
+                          {notification.time}
+                        </span>
+                      </DropdownMenuItem>
+                    ))
+                  ) : (
+                    <DropdownMenuItem disabled>
+                      No new notifications
                     </DropdownMenuItem>
-                  ))}
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </TooltipTrigger>
@@ -90,16 +111,18 @@ export default function Header({
             <Button variant="ghost" className="flex items-center gap-2">
               <Avatar className="h-8 w-8">
                 <AvatarImage
-                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${adminName}`}
+                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id || "default"}`}
                 />
                 <AvatarFallback>
                   <User className="h-4 w-4" />
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-col items-start">
-                <span className="text-sm font-medium">{adminName}</span>
+                <span className="text-sm font-medium">
+                  {profile?.username || "User"}
+                </span>
                 <span className="text-xs text-muted-foreground">
-                  {adminEmail}
+                  {user?.email || ""}
                 </span>
               </div>
             </Button>
@@ -111,7 +134,7 @@ export default function Header({
             <DropdownMenuItem>Settings</DropdownMenuItem>
             <DropdownMenuItem>Help</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Log out</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSignOut}>Log out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

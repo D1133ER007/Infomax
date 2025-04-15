@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -25,58 +25,61 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, MoreVertical, ArrowUpDown } from "lucide-react";
-
-interface Student {
-  id: string;
-  name: string;
-  email: string;
-  grade: string;
-  enrollmentDate: string;
-  status: "active" | "inactive";
-}
+import { Search, MoreVertical, ArrowUpDown, Loader2 } from "lucide-react";
+import { useStudents, Student } from "@/lib/hooks/useStudents";
+import { useToast } from "@/components/ui/use-toast";
 
 interface StudentTableProps {
   students?: Student[];
   onEdit?: (student: Student) => void;
   onDelete?: (studentId: string) => void;
+  isLoading?: boolean;
 }
 
 export default function StudentTable({
-  students = [
-    {
-      id: "1",
-      name: "John Doe",
-      email: "john@example.com",
-      grade: "12th",
-      enrollmentDate: "2024-01-15",
-      status: "active",
-    },
-    {
-      id: "2",
-      name: "Jane Smith",
-      email: "jane@example.com",
-      grade: "11th",
-      enrollmentDate: "2024-02-01",
-      status: "active",
-    },
-    {
-      id: "3",
-      name: "Mike Johnson",
-      email: "mike@example.com",
-      grade: "10th",
-      enrollmentDate: "2024-01-20",
-      status: "inactive",
-    },
-  ],
+  students: initialStudents,
   onEdit = () => {},
   onDelete = () => {},
+  isLoading: initialLoading = false,
 }: StudentTableProps) {
+  const [students, setStudents] = useState<Student[]>(initialStudents || []);
+  const [isLoading, setIsLoading] = useState(
+    initialLoading || !initialStudents,
+  );
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortField, setSortField] = useState<keyof Student | null>(null);
+  const [sortField, setSortField] = useState<keyof Student | null>(
+    "first_name",
+  );
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const { getStudents, deleteStudent } = useStudents();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!initialStudents) {
+      fetchStudents();
+    }
+  }, [initialStudents]);
+
+  const fetchStudents = async () => {
+    setIsLoading(true);
+    const { data, error } = await getStudents();
+    setIsLoading(false);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load students. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (data) {
+      setStudents(data);
+    }
+  };
 
   const handleSort = (field: keyof Student) => {
     if (sortField === field) {
@@ -87,9 +90,30 @@ export default function StudentTable({
     }
   };
 
+  const handleDelete = async (id: string) => {
+    const { error } = await deleteStudent(id);
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete student. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Success",
+      description: "Student deleted successfully.",
+    });
+
+    // Remove from local state
+    setStudents(students.filter((student) => student.id !== id));
+    onDelete(id);
+  };
+
   const filteredStudents = students.filter((student) =>
     Object.values(student).some((value) =>
-      value.toString().toLowerCase().includes(searchQuery.toLowerCase()),
+      value?.toString().toLowerCase().includes(searchQuery.toLowerCase()),
     ),
   );
 
@@ -115,6 +139,9 @@ export default function StudentTable({
             className="pl-8"
           />
         </div>
+        <Button onClick={fetchStudents} variant="outline" size="sm">
+          Refresh
+        </Button>
       </div>
 
       <div className="rounded-md border">
@@ -123,7 +150,7 @@ export default function StudentTable({
             <TableRow>
               <TableHead
                 className="cursor-pointer"
-                onClick={() => handleSort("name")}
+                onClick={() => handleSort("first_name")}
               >
                 <div className="flex items-center gap-1">
                   Name
@@ -150,7 +177,7 @@ export default function StudentTable({
               </TableHead>
               <TableHead
                 className="cursor-pointer"
-                onClick={() => handleSort("enrollmentDate")}
+                onClick={() => handleSort("enrollment_date")}
               >
                 <div className="flex items-center gap-1">
                   Enrollment Date
@@ -170,48 +197,67 @@ export default function StudentTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedStudents.map((student) => (
-              <TableRow key={student.id}>
-                <TableCell>{student.name}</TableCell>
-                <TableCell>{student.email}</TableCell>
-                <TableCell>{student.grade}</TableCell>
-                <TableCell>{student.enrollmentDate}</TableCell>
-                <TableCell>
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      student.status === "active"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {student.status}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onEdit(student)}>
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setSelectedStudent(student);
-                          setShowDeleteDialog(true);
-                        }}
-                        className="text-red-600"
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center">
+                  <div className="flex justify-center items-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span className="ml-2">Loading students...</span>
+                  </div>
                 </TableCell>
               </TableRow>
-            ))}
+            ) : sortedStudents.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center">
+                  No students found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              sortedStudents.map((student) => (
+                <TableRow key={student.id}>
+                  <TableCell>{`${student.first_name} ${student.last_name}`}</TableCell>
+                  <TableCell>{student.email}</TableCell>
+                  <TableCell>{student.grade}</TableCell>
+                  <TableCell>
+                    {new Date(student.enrollment_date).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        student.status === "active"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {student.status}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onEdit(student)}>
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedStudent(student);
+                            setShowDeleteDialog(true);
+                          }}
+                          className="text-red-600"
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
@@ -221,8 +267,11 @@ export default function StudentTable({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Student</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete {selectedStudent?.name}? This
-              action cannot be undone.
+              Are you sure you want to delete{" "}
+              {selectedStudent
+                ? `${selectedStudent.first_name} ${selectedStudent.last_name}`
+                : ""}
+              ? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -230,7 +279,7 @@ export default function StudentTable({
             <AlertDialogAction
               onClick={() => {
                 if (selectedStudent) {
-                  onDelete(selectedStudent.id);
+                  handleDelete(selectedStudent.id);
                   setShowDeleteDialog(false);
                 }
               }}
