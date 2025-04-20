@@ -5,11 +5,15 @@ export interface Appointment {
   id: string;
   student_id: string;
   title: string;
-  description?: string;
+  description?: string | null;
   appointment_date: string;
   appointment_time: string;
   status: "scheduled" | "completed" | "cancelled";
   created_at: string;
+  students?: {
+    first_name: string;
+    last_name: string;
+  };
 }
 
 export function useAppointments() {
@@ -26,10 +30,10 @@ export function useAppointments() {
         .order("appointment_date", { ascending: true });
 
       if (error) throw error;
-      return { data, error: null };
+      return { data: data || [], error: null };
     } catch (error) {
       console.error("Error fetching appointments:", error);
-      return { data: null, error };
+      return { data: [], error };
     }
   }, []);
 
@@ -49,10 +53,10 @@ export function useAppointments() {
         .order("appointment_date", { ascending: true });
 
       if (error) throw error;
-      return { data, error: null };
+      return { data: data || [], error: null };
     } catch (error) {
       console.error("Error fetching upcoming appointments:", error);
-      return { data: null, error };
+      return { data: [], error };
     }
   }, []);
 
